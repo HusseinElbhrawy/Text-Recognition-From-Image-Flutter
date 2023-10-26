@@ -21,13 +21,13 @@ class _HomeViewState extends State<HomeView> {
   late ITextRecognizer _recognizer;
 
   RecognitionResponse? _response;
-
+  bool isLoading = false;
   @override
   void initState() {
     super.initState();
     _picker = ImagePicker();
 
-    /// Can be [MLKitTextRecognizer] or [TesseractTextRecognizer]
+    ///! Can be [MLKitTextRecognizer] or [TesseractTextRecognizer]
     // _recognizer = MLKitTextRecognizer();
     _recognizer = TesseractTextRecognizer();
   }
@@ -41,12 +41,16 @@ class _HomeViewState extends State<HomeView> {
   }
 
   void processImage(String imgPath) async {
+    isLoading = true;
+    setState(() {});
     final recognizedText = await _recognizer.processImage(imgPath);
+
     setState(() {
       _response = RecognitionResponse(
         imgPath: imgPath,
         recognizedText: recognizedText,
       );
+      isLoading = false;
     });
   }
 
@@ -57,78 +61,104 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Text Recognition'),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => imagePickAlert(
-              onCameraPressed: () async {
-                final imgPath = await obtainImage(ImageSource.camera);
-                if (imgPath == null) return;
-                Navigator.of(context).pop();
-                processImage(imgPath);
-              },
-              onGalleryPressed: () async {
-                final imgPath = await obtainImage(ImageSource.gallery);
-                if (imgPath == null) return;
-                Navigator.of(context).pop();
-                processImage(imgPath);
-              },
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-      body: _response == null
-          ? const Center(
-              child: Text('Pick image to continue'),
-            )
-          : ListView(
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.width,
-                  width: MediaQuery.of(context).size.width,
-                  child: Image.file(File(_response!.imgPath)),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text('Text Recognition'),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => imagePickAlert(
+                  onCameraPressed: () async {
+                    obtainImage(ImageSource.camera).then(
+                      (value) {
+                        if (value == null) return;
+                        Navigator.of(context).pop();
+                        processImage(value);
+                      },
+                    );
+                  },
+                  onGalleryPressed: () async {
+                    obtainImage(ImageSource.gallery).then(
+                      (value) {
+                        if (value == null) return;
+                        Navigator.of(context).pop();
+                        processImage(value);
+                      },
+                    );
+                  },
                 ),
-                Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                "Recognized Text",
-                                style: Theme.of(context).textTheme.titleLarge,
+              );
+            },
+            child: const Icon(Icons.add),
+          ),
+          body: _response == null
+              ? const Center(
+                  child: Text(
+                    'Pick image to continue',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                    ),
+                  ),
+                )
+              : ListView(
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.of(context).size.width,
+                      width: MediaQuery.of(context).size.width,
+                      child: Image.file(File(_response!.imgPath)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  "Recognized Text",
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(
-                                      text: _response!.recognizedText),
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Copied to Clipboard'),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.copy),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(_response!.recognizedText),
-                      ],
-                    )),
-              ],
+                              IconButton(
+                                onPressed: () {
+                                  Clipboard.setData(
+                                    ClipboardData(
+                                        text: _response!.recognizedText),
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Copied to Clipboard'),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.copy),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(_response!.recognizedText),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+        Visibility(
+          visible: isLoading,
+          child: Container(
+            color: Colors.grey.withOpacity(.25),
+            child: const Center(
+              child: CircularProgressIndicator(),
             ),
+          ),
+        ),
+      ],
     );
   }
 }
